@@ -1303,6 +1303,12 @@
         // Download as Word
         downloadBtn.addEventListener('click', async () => {
             try {
+                // Check if docx is loaded
+                if (typeof docx === 'undefined') {
+                    showToast('Error: Librería Word no cargada. Recarga la página.', 'error');
+                    return;
+                }
+
                 const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = docx;
 
                 // Get content from editor and clean it
