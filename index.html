@@ -1164,9 +1164,11 @@
                 progressFill.style.width = '100%';
                 processingText.textContent = `${transcriptions.length} transcripción(es) completada(s)`;
 
-                // Create tabs and display first transcription
+                // Show transcription
+                activeTranscriptionIndex = 0;
+                editor.innerHTML = transcriptions[0].text;
+                updateWordCount();
                 createTabs();
-                switchToTranscription(0);
 
                 // Enable buttons
                 copyBtn.disabled = false;
@@ -1209,11 +1211,6 @@
             if (transcriptions.length <= 1) {
                 tabsContainer.classList.remove('active');
                 editorToolbar.classList.add('no-tabs');
-                // For single file, still show content
-                if (transcriptions.length === 1) {
-                    editor.innerHTML = transcriptions[0].text;
-                    updateWordCount();
-                }
                 return;
             }
 
