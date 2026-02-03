@@ -1304,8 +1304,14 @@
             try {
                 const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = docx;
 
-                const content = editor.innerHTML;
-                const paragraphs = content.split(/<br\s*\/?>/gi).filter(p => p.trim());
+                // Get content from editor and clean it
+                const content = editor.innerText || editor.textContent;
+                const lines = content.split('\n').filter(line => line.trim());
+
+                // Get file name if available
+                const fileName = transcriptions.length > 0 && activeTranscriptionIndex < transcriptions.length
+                    ? transcriptions[activeTranscriptionIndex].fileName.replace(/\.[^/.]+$/, '')
+                    : 'informe_medico';
 
                 const docParagraphs = [
                     new Paragraph({
@@ -1346,14 +1352,14 @@
                     new Paragraph({ spacing: { after: 200 } }),
                 ];
 
-                paragraphs.forEach(p => {
-                    const cleanText = p.replace(/<[^>]*>/g, '').trim();
-                    if (cleanText) {
+                // Add content paragraphs
+                lines.forEach(line => {
+                    if (line.trim()) {
                         docParagraphs.push(
                             new Paragraph({
                                 children: [
                                     new TextRun({
-                                        text: cleanText,
+                                        text: line,
                                         size: 24,
                                     }),
                                 ],
@@ -1374,14 +1380,14 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `informe_medico_${new Date().toISOString().split('T')[0]}.docx`;
+                a.download = `${fileName}_${new Date().toISOString().split('T')[0]}.docx`;
                 a.click();
                 URL.revokeObjectURL(url);
 
                 showToast('Documento Word descargado', 'success');
             } catch (error) {
                 console.error('Error:', error);
-                showToast('Error al crear documento', 'error');
+                showToast('Error al crear documento: ' + error.message, 'error');
             }
         });
 
