@@ -830,7 +830,7 @@
                 <div class="file-list" id="fileList"></div>
 
                 <div class="model-notice" id="modelNotice">
-                    ⚡ Descargando modelo rápido (~75MB). Solo la primera vez. Procesa audios en segundos.
+                    ⚡ Descargando modelo de alta precisión (~150MB). Solo la primera vez. Los resultados aparecen progresivamente.
                 </div>
 
                 <div class="processing-status" id="processingStatus">
@@ -1071,16 +1071,16 @@
         async function loadModel() {
             if (transcriber) return transcriber;
 
-            processingText.textContent = 'Cargando modelo Whisper Base (rápido y preciso)...';
+            processingText.textContent = 'Cargando modelo Whisper Small (alta precisión)...';
             progressFill.style.width = '20%';
 
             try {
-                // Use Whisper Base for good balance between speed and accuracy
-                transcriber = await window.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', {
+                // Use Whisper Small for medical precision
+                transcriber = await window.pipeline('automatic-speech-recognition', 'Xenova/whisper-small', {
                     progress_callback: (progress) => {
                         if (progress.status === 'downloading') {
                             const percent = Math.round((progress.loaded / progress.total) * 100);
-                            processingText.textContent = `Descargando modelo: ${percent}% (~75MB, solo primera vez)`;
+                            processingText.textContent = `Descargando modelo: ${percent}% (~150MB, solo primera vez)`;
                             progressFill.style.width = `${20 + (percent * 0.3)}%`;
                         }
                     }
@@ -1110,7 +1110,7 @@
             return audioData;
         }
 
-        // Transcribe Audio (sequential processing)
+        // Transcribe Audio (progressive sequential processing)
         transcribeBtn.addEventListener('click', async () => {
             if (uploadedFiles.length === 0) return;
 
@@ -1118,12 +1118,13 @@
             transcribeBtn.disabled = true;
             progressFill.style.width = '10%';
             transcriptions = [];
+            activeTranscriptionIndex = 0;
 
             try {
                 // Load model if not loaded
                 await loadModel();
 
-                // Process files sequentially (one at a time to avoid freezing)
+                // Process files ONE BY ONE and show results progressively
                 for (let i = 0; i < uploadedFiles.length; i++) {
                     const file = uploadedFiles[i];
                     processingText.textContent = `Transcribiendo ${i + 1}/${uploadedFiles.length}: ${file.name}`;
@@ -1135,15 +1136,16 @@
                         // Convert audio to float32 array
                         const audioData = await audioToFloat32(file);
 
-                        // Transcribe with Whisper (optimized for speed and Spanish)
+                        // Transcribe with Whisper Small (high precision)
                         const result = await transcriber(audioData, {
                             language: 'es',
                             task: 'transcribe',
-                            chunk_length_s: 20,
-                            stride_length_s: 3,
+                            chunk_length_s: 30,
+                            stride_length_s: 5,
                             return_timestamps: false
                         });
 
+                        // Add transcription immediately
                         transcriptions.push({
                             fileName: file.name,
                             text: result.text || 'No se detectó audio hablado.',
@@ -1158,22 +1160,24 @@
                         });
                     }
                     
+                    // SHOW RESULT IMMEDIATELY after each file
+                    if (i === 0) {
+                        // First file: show it
+                        editor.innerHTML = transcriptions[0].text;
+                        updateWordCount();
+                        copyBtn.disabled = false;
+                        downloadBtn.disabled = false;
+                        printBtn.disabled = false;
+                    }
+                    
+                    // Update tabs progressively
+                    createTabs();
+                    
                     progressFill.style.width = `${baseProgress + (60 / uploadedFiles.length)}%`;
                 }
 
                 progressFill.style.width = '100%';
-                processingText.textContent = `${transcriptions.length} transcripción(es) completada(s)`;
-
-                // Show transcription
-                activeTranscriptionIndex = 0;
-                editor.innerHTML = transcriptions[0].text;
-                updateWordCount();
-                createTabs();
-
-                // Enable buttons
-                copyBtn.disabled = false;
-                downloadBtn.disabled = false;
-                printBtn.disabled = false;
+                processingText.textContent = `✓ ${transcriptions.length} transcripción(es) completada(s)`;
 
                 setTimeout(() => {
                     processingStatus.classList.remove('active');
@@ -1188,6 +1192,7 @@
 
             transcribeBtn.disabled = false;
         });
+
 
         // Update Word Count
         function updateWordCount() {
