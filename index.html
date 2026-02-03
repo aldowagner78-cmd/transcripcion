@@ -830,7 +830,7 @@
                 <div class="file-list" id="fileList"></div>
 
                 <div class="model-notice" id="modelNotice">
-                    ⚡ Descargando modelo de alta precisión (~150MB). Solo la primera vez. Los audios se procesan uno por uno para mantener el navegador fluido.
+                    ⚡ Descargando modelo rápido (~75MB). Solo la primera vez. Procesa audios en segundos.
                 </div>
 
                 <div class="processing-status" id="processingStatus">
@@ -1071,16 +1071,16 @@
         async function loadModel() {
             if (transcriber) return transcriber;
 
-            processingText.textContent = 'Cargando modelo Whisper Small (alta precisión)...';
+            processingText.textContent = 'Cargando modelo Whisper Base (rápido y preciso)...';
             progressFill.style.width = '20%';
 
             try {
-                // Use Whisper Small for better accuracy (especially for medical terminology)
-                transcriber = await window.pipeline('automatic-speech-recognition', 'Xenova/whisper-small', {
+                // Use Whisper Base for good balance between speed and accuracy
+                transcriber = await window.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', {
                     progress_callback: (progress) => {
                         if (progress.status === 'downloading') {
                             const percent = Math.round((progress.loaded / progress.total) * 100);
-                            processingText.textContent = `Descargando modelo: ${percent}% (~150MB, solo primera vez)`;
+                            processingText.textContent = `Descargando modelo: ${percent}% (~75MB, solo primera vez)`;
                             progressFill.style.width = `${20 + (percent * 0.3)}%`;
                         }
                     }
@@ -1135,12 +1135,12 @@
                         // Convert audio to float32 array
                         const audioData = await audioToFloat32(file);
 
-                        // Transcribe with Whisper (optimized for Spanish medical terminology)
+                        // Transcribe with Whisper (optimized for speed and Spanish)
                         const result = await transcriber(audioData, {
                             language: 'es',
                             task: 'transcribe',
-                            chunk_length_s: 30,
-                            stride_length_s: 5,
+                            chunk_length_s: 20,
+                            stride_length_s: 3,
                             return_timestamps: false
                         });
 
