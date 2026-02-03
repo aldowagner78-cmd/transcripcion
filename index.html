@@ -611,6 +611,137 @@
         .toast.error { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
         .toast svg { width: 18px; height: 18px; fill: white; flex-shrink: 0; }
 
+        /* Help Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            place-items: center;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        .modal-overlay.active { display: grid; }
+        
+        .modal {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            max-width: 700px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            animation: modalIn 0.3s ease;
+        }
+        
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(-20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        
+        .modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            background: var(--bg-card);
+            z-index: 10;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: var(--bg-main);
+            border-radius: 50%;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: all 0.2s;
+        }
+        
+        .modal-close:hover { background: #fee2e2; color: #ef4444; }
+        .modal-close svg { width: 18px; height: 18px; fill: currentColor; }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .help-section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .help-section:last-child { margin-bottom: 0; }
+        
+        .help-section h3 {
+            font-size: 1rem;
+            color: var(--primary);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary);
+        }
+        
+        .help-section p, .help-section li {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            line-height: 1.7;
+        }
+        
+        .help-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .help-section li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+        
+        .help-section li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+            font-weight: bold;
+        }
+        
+        .help-tip {
+            background: linear-gradient(135deg, rgba(15,118,110,0.08), rgba(15,118,110,0.15));
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            border-left: 4px solid var(--primary);
+            margin-top: 0.75rem;
+        }
+        
+        .help-tip strong { color: var(--primary); }
+        
+        .shortcut {
+            display: inline-block;
+            background: var(--bg-main);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            border: 1px solid var(--border);
+        }
+
         /* Mobile Responsive */
         @media (max-width: 900px) {
             .main-container {
@@ -646,6 +777,9 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button class="theme-toggle" id="helpBtn" title="Ayuda / Manual">
+                    <svg viewBox="0 0 24 24"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
+                </button>
                 <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
                     <svg id="themeIcon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
                 </button>
@@ -821,6 +955,143 @@
     <div class="toast" id="toast">
         <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
         <span id="toastMessage">Operación completada</span>
+    </div>
+
+    <!-- Modal de Ayuda -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>📖 Manual de Usuario</h2>
+                <button class="modal-close" id="closeHelp">
+                    <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="help-section">
+                    <h3>🎯 ¿Qué es esta aplicación?</h3>
+                    <p><strong>Transcriptor Médico Pro</strong> convierte archivos de audio en texto escrito usando inteligencia artificial (Whisper de OpenAI via Groq). Ideal para médicos, profesionales de salud, estudiantes y cualquier persona que necesite transcribir dictados de voz.</p>
+                </div>
+
+                <div class="help-section">
+                    <h3>🔑 Configuración Inicial (API Key)</h3>
+                    <ul>
+                        <li>Necesitas una API Key gratuita de Groq para usar la app</li>
+                        <li>Obtén tu key en <a href="https://console.groq.com/keys" target="_blank" style="color: var(--primary)">console.groq.com/keys</a> (registro gratis)</li>
+                        <li>Pega tu key (empieza con <code>gsk_</code>) y presiona "Guardar Key"</li>
+                        <li>La key se guarda localmente en tu navegador - solo la ingresas una vez</li>
+                    </ul>
+                    <div class="help-tip">
+                        <strong>💡 Tip:</strong> Tu API Key nunca sale de tu dispositivo. Se almacena de forma segura en tu navegador.
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>📤 Subir Archivos de Audio</h3>
+                    <ul>
+                        <li><strong>Arrastra y suelta</strong> archivos sobre la zona de carga</li>
+                        <li>O <strong>toca/haz clic</strong> para seleccionar desde tu dispositivo</li>
+                        <li>Formatos soportados: MP3, WAV, OGG, M4A, WebM, FLAC</li>
+                        <li>Tamaño máximo: 25MB por archivo</li>
+                        <li>Puedes subir <strong>múltiples archivos</strong> a la vez</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>🔊 Opciones de Mejora de Audio</h3>
+                    <p>Antes de transcribir, puedes activar estas opciones para mejorar la calidad:</p>
+                    <ul>
+                        <li><strong>🔊 Normalizar:</strong> Ajusta automáticamente el volumen al nivel óptimo. Útil si el audio fue grabado muy bajo o muy alto.</li>
+                        <li><strong>🔇 Reducir ruido:</strong> Aplica filtros para eliminar ruidos de fondo molestos como zumbidos, aire acondicionado, o siseo. Elimina frecuencias muy bajas (&lt;80Hz) y muy altas (&gt;12kHz).</li>
+                        <li><strong>📦 Comprimir:</strong> Reduce el rango dinámico del audio. Esto significa que las partes muy suaves se hacen más audibles y las muy fuertes se suavizan. <strong>Ideal para:</strong> grabaciones con volumen irregular, voces que varían mucho entre susurros y gritos, o entrevistas donde algunas personas hablan más bajo que otras.</li>
+                    </ul>
+                    <div class="help-tip">
+                        <strong>💡 Recomendación:</strong> Para grabaciones de celular o dictados casuales, activa las tres opciones. Para audio de buena calidad (micrófonos profesionales), puedes desactivarlas.
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>🎤 Transcribir</h3>
+                    <ul>
+                        <li>Presiona el botón <strong>"Transcribir"</strong> para iniciar</li>
+                        <li>Los archivos se procesan uno por uno (secuencialmente)</li>
+                        <li>Puedes ver el progreso en la barra y el archivo actual</li>
+                        <li>Cada transcripción aparece en una <strong>pestaña</strong> separada</li>
+                        <li>Puedes <strong>editar el texto mientras</strong> se procesan otros archivos</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>✏️ Editor de Texto</h3>
+                    <ul>
+                        <li><strong>Negrita, cursiva, subrayado:</strong> Selecciona texto y usa los botones o atajos</li>
+                        <li><strong>Buscar y reemplazar:</strong> Botón 🔍 o <span class="shortcut">Ctrl+H</span></li>
+                        <li><strong>Deshacer/Rehacer:</strong> Botones ↶ ↷ o <span class="shortcut">Ctrl+Z</span> / <span class="shortcut">Ctrl+Y</span></li>
+                        <li><strong>Tamaño de fuente:</strong> Selector desplegable (14px - 24px)</li>
+                        <li><strong>Limpiar formato:</strong> Quita todo el formato del texto seleccionado</li>
+                        <li><strong>Pestañas:</strong> Si transcribes varios archivos, cada uno tiene su pestaña</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>📥 Descargar Transcripción</h3>
+                    <ul>
+                        <li><strong>RTF (Word):</strong> Compatible con Microsoft Word, OpenOffice, LibreOffice. Mantiene formato básico.</li>
+                        <li><strong>PDF:</strong> Documento con formato profesional, ideal para compartir o imprimir.</li>
+                        <li><strong>TXT:</strong> Texto plano sin formato. Abre en cualquier editor.</li>
+                        <li><strong>HTML:</strong> Página web con estilos. Abre en cualquier navegador.</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>📋 Otras Funciones</h3>
+                    <ul>
+                        <li><strong>Copiar:</strong> Copia todo el texto al portapapeles</li>
+                        <li><strong>Limpiar:</strong> Borra todos los archivos y transcripciones</li>
+                        <li><strong>Tema oscuro/claro:</strong> Botón 🌙/☀️ en la esquina superior derecha</li>
+                        <li><strong>Contador de palabras:</strong> Se actualiza en tiempo real mientras editas</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>⌨️ Atajos de Teclado</h3>
+                    <ul>
+                        <li><span class="shortcut">Ctrl+B</span> → Negrita</li>
+                        <li><span class="shortcut">Ctrl+I</span> → Cursiva</li>
+                        <li><span class="shortcut">Ctrl+U</span> → Subrayado</li>
+                        <li><span class="shortcut">Ctrl+H</span> → Buscar y reemplazar</li>
+                        <li><span class="shortcut">Ctrl+Z</span> → Deshacer</li>
+                        <li><span class="shortcut">Ctrl+Y</span> → Rehacer</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>📱 Uso en Celular</h3>
+                    <p>La aplicación está optimizada para dispositivos móviles:</p>
+                    <ul>
+                        <li>La interfaz se adapta automáticamente a pantallas pequeñas</li>
+                        <li>Puedes grabar audio con tu app de grabadora y subirlo directamente</li>
+                        <li>Todos los formatos de descarga funcionan en móvil</li>
+                        <li>Puedes agregar la web a tu pantalla de inicio como si fuera una app</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>❓ Solución de Problemas</h3>
+                    <ul>
+                        <li><strong>"API 401":</strong> Tu API Key es inválida o expiró. Genera una nueva en Groq.</li>
+                        <li><strong>"API 413":</strong> El archivo es muy grande. Máximo 25MB.</li>
+                        <li><strong>"API 429":</strong> Demasiadas solicitudes. Espera un momento e intenta de nuevo.</li>
+                        <li><strong>Audio no se procesa:</strong> Verifica que el formato sea compatible. Intenta convertir a MP3.</li>
+                        <li><strong>Descarga no funciona:</strong> Verifica que tengas texto en el editor. Prueba otro formato.</li>
+                    </ul>
+                </div>
+
+                <div class="help-tip" style="margin-top: 1.5rem; text-align: center;">
+                    <strong>🚀 Versión 2.0</strong> — Desarrollado con ❤️ para profesionales de la salud<br>
+                    <small style="opacity: 0.7">Transcripción potenciada por Whisper (OpenAI) via Groq</small>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1509,6 +1780,29 @@ ${text.split('\n').map(l => `<p>${l}</p>`).join('')}</body></html>`;
                     e.preventDefault();
                     $('toggleFindReplace').click();
                 }
+            }
+            // Escape cierra modales
+            if (e.key === 'Escape') {
+                $('helpModal').classList.remove('active');
+            }
+        });
+
+        // ============ HELP MODAL ============
+        const helpModal = $('helpModal');
+        const helpBtn = $('helpBtn');
+        const closeHelp = $('closeHelp');
+
+        helpBtn.addEventListener('click', () => {
+            helpModal.classList.add('active');
+        });
+
+        closeHelp.addEventListener('click', () => {
+            helpModal.classList.remove('active');
+        });
+
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                helpModal.classList.remove('active');
             }
         });
     </script>
