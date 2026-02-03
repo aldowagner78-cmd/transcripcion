@@ -1001,16 +1001,16 @@
         async function loadModel() {
             if (transcriber) return transcriber;
 
-            processingText.textContent = 'Cargando modelo Whisper Tiny (más rápido)...';
+            processingText.textContent = 'Cargando modelo Whisper Small (alta precisión)...';
             progressFill.style.width = '20%';
 
             try {
-                // Use Whisper tiny for speed (much faster download and inference)
-                transcriber = await window.pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
+                // Use Whisper Small for better accuracy (especially for medical terminology)
+                transcriber = await window.pipeline('automatic-speech-recognition', 'Xenova/whisper-small', {
                     progress_callback: (progress) => {
                         if (progress.status === 'downloading') {
                             const percent = Math.round((progress.loaded / progress.total) * 100);
-                            processingText.textContent = `Descargando modelo: ${percent}%`;
+                            processingText.textContent = `Descargando modelo: ${percent}% (~150MB, solo primera vez)`;
                             progressFill.style.width = `${20 + (percent * 0.3)}%`;
                         }
                     }
@@ -1062,12 +1062,13 @@
                     // Convert audio to float32 array
                     const audioData = await audioToFloat32(file);
 
-                    // Transcribe with Whisper
+                    // Transcribe with Whisper (optimized for Spanish medical terminology)
                     const result = await transcriber(audioData, {
-                        language: 'spanish',
+                        language: 'es',
                         task: 'transcribe',
                         chunk_length_s: 30,
-                        stride_length_s: 5
+                        stride_length_s: 5,
+                        return_timestamps: false
                     });
 
                     fullTranscript += result.text + '\n\n';
