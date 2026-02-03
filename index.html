@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transcriptor Médico | Audio a Texto</title>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Crimson+Pro:wght@400;500;600&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.4/docx.umd.min.js"></script>
     <style>
         :root {
             --primary: #0f766e;
@@ -811,77 +810,68 @@
 
         // Download Word
         downloadBtn.addEventListener('click', async () => {
-            try {
-                if (typeof docx === 'undefined') {
-                    showToast('Recarga la página para descargar', 'error');
-                    return;
-                }
-
-                const text = editor.innerText || '';
-                if (!text.trim()) {
-                    showToast('No hay texto para descargar', 'error');
-                    return;
-                }
-
-                const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } = docx;
-                const lines = text.split('\n');
-                const fileName = transcriptions[activeTranscriptionIndex]?.fileName?.replace(/\.[^/.]+$/, '') || 'informe';
-
-                const paragraphs = [];
-                
-                // Header
-                paragraphs.push(new Paragraph({
-                    children: [new TextRun({ text: 'INFORME MÉDICO', bold: true, size: 36 })],
-                    alignment: AlignmentType.CENTER,
-                    spacing: { after: 200 }
-                }));
-                
-                paragraphs.push(new Paragraph({
-                    children: [new TextRun({ text: `Fecha: ${new Date().toLocaleDateString('es-ES')}`, size: 24, italics: true, color: '666666' })],
-                    alignment: AlignmentType.CENTER,
-                    spacing: { after: 400 }
-                }));
-
-                // Content
-                for (const line of lines) {
-                    paragraphs.push(new Paragraph({
-                        children: [new TextRun({ text: line, size: 24 })],
-                        spacing: { after: 120 }
-                    }));
-                }
-
-                const doc = new Document({
-                    creator: "Transcriptor Médico",
-                    title: "Informe Médico",
-                    description: "Transcripción de audio médico",
-                    sections: [{
-                        properties: {},
-                        children: paragraphs
-                    }]
-                });
-
-                const blob = await Packer.toBlob(doc);
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${fileName}_${new Date().toISOString().split('T')[0]}.docx`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                showToast('Documento descargado', 'success');
-            } catch (e) {
-                console.error('Error Word:', e);
-                // Fallback: download as TXT
-                const text = editor.innerText || '';
-                const blob = new Blob([text], { type: 'text/plain' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `informe_${new Date().toISOString().split('T')[0]}.txt`;
-                a.click();
-                showToast('Descargado como TXT (error en Word)', 'error');
+            const text = editor.innerText || '';
+            if (!text.trim()) {
+                showToast('No hay texto para descargar', 'error');
+                return;
             }
+
+            const fileName = transcriptions[activeTranscriptionIndex]?.fileName?.replace(/\.[^/.]+$/, '') || 'informe';
+            const dateStr = new Date().toLocaleDateString('es-ES');
+            const fileDate = new Date().toISOString().split('T')[0];
+
+            // Crear RTF (funciona en Word, OpenOffice, LibreOffice, Google Docs)
+            const rtfContent = createRTF(text, dateStr);
+            
+            const blob = new Blob([rtfContent], { type: 'application/rtf' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${fileName}_${fileDate}.rtf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Documento RTF descargado (compatible con Word/OpenOffice)', 'success');
         });
+
+        // Crear documento RTF
+        function createRTF(text, fecha) {
+            const lines = text.split('\n');
+            let rtfBody = '';
+            
+            for (const line of lines) {
+                // Escapar caracteres especiales RTF
+                const escaped = line
+                    .replace(/\\/g, '\\\\')
+                    .replace(/\{/g, '\\{')
+                    .replace(/\}/g, '\\}')
+                    .replace(/[áàäâ]/g, "\\'e1")
+                    .replace(/[éèëê]/g, "\\'e9")
+                    .replace(/[íìïî]/g, "\\'ed")
+                    .replace(/[óòöô]/g, "\\'f3")
+                    .replace(/[úùüû]/g, "\\'fa")
+                    .replace(/ñ/g, "\\'f1")
+                    .replace(/Ñ/g, "\\'d1")
+                    .replace(/[ÁÀÄÂ]/g, "\\'c1")
+                    .replace(/[ÉÈËÊ]/g, "\\'c9")
+                    .replace(/[ÍÌÏÎ]/g, "\\'cd")
+                    .replace(/[ÓÒÖÔ]/g, "\\'d3")
+                    .replace(/[ÚÙÜÛ]/g, "\\'da");
+                rtfBody += escaped + '\\par\n';
+            }
+
+            return `{\\rtf1\\ansi\\deff0
+{\\fonttbl{\\f0 Arial;}{\\f1 Times New Roman;}}
+{\\colortbl;\\red0\\green0\\blue0;\\red102\\green102\\blue102;}
+\\paperw12240\\paperh15840\\margl1440\\margr1440\\margt1440\\margb1440
+\\qc\\f0\\fs36\\b INFORME M\\'c9DICO\\b0\\par
+\\fs24\\cf2\\i Fecha: ${fecha}\\i0\\cf1\\par
+\\par
+\\ql\\f1\\fs24
+${rtfBody}
+}`; 
+        }
 
         // Reset
         resetBtn.addEventListener('click', () => {
