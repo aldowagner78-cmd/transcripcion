@@ -830,7 +830,7 @@
                 <div class="file-list" id="fileList"></div>
 
                 <div class="model-notice" id="modelNotice">
-                    ⚡ Descargando modelo de alta precisión (~150MB). Solo la primera vez. Luego podrás procesar múltiples audios simultáneamente.
+                    ⚡ Descargando modelo de alta precisión (~150MB). Solo la primera vez. Los audios se procesan uno por uno para mantener el navegador fluido.
                 </div>
 
                 <div class="processing-status" id="processingStatus">
@@ -1110,7 +1110,7 @@
             return audioData;
         }
 
-        // Transcribe Audio (with parallel processing)
+        // Transcribe Audio (sequential processing)
         transcribeBtn.addEventListener('click', async () => {
             if (uploadedFiles.length === 0) return;
 
@@ -1123,48 +1123,42 @@
                 // Load model if not loaded
                 await loadModel();
 
-                processingText.textContent = `Procesando ${uploadedFiles.length} archivo(s) en paralelo...`;
-                progressFill.style.width = '30%';
-
-                // Process all files in parallel (max 10 at a time to avoid memory issues)
-                const batchSize = 10;
-                for (let i = 0; i < uploadedFiles.length; i += batchSize) {
-                    const batch = uploadedFiles.slice(i, i + batchSize);
+                // Process files sequentially (one at a time to avoid freezing)
+                for (let i = 0; i < uploadedFiles.length; i++) {
+                    const file = uploadedFiles[i];
+                    processingText.textContent = `Transcribiendo ${i + 1}/${uploadedFiles.length}: ${file.name}`;
                     
-                    const batchPromises = batch.map(async (file) => {
-                        try {
-                            // Convert audio to float32 array
-                            const audioData = await audioToFloat32(file);
+                    const baseProgress = 30 + ((i / uploadedFiles.length) * 60);
+                    progressFill.style.width = `${baseProgress}%`;
 
-                            // Transcribe with Whisper (optimized for Spanish medical terminology)
-                            const result = await transcriber(audioData, {
-                                language: 'es',
-                                task: 'transcribe',
-                                chunk_length_s: 30,
-                                stride_length_s: 5,
-                                return_timestamps: false
-                            });
+                    try {
+                        // Convert audio to float32 array
+                        const audioData = await audioToFloat32(file);
 
-                            return {
-                                fileName: file.name,
-                                text: result.text || 'No se detectó audio hablado.',
-                                success: true
-                            };
-                        } catch (error) {
-                            console.error(`Error transcribing ${file.name}:`, error);
-                            return {
-                                fileName: file.name,
-                                text: `Error al transcribir: ${error.message}`,
-                                success: false
-                            };
-                        }
-                    });
+                        // Transcribe with Whisper (optimized for Spanish medical terminology)
+                        const result = await transcriber(audioData, {
+                            language: 'es',
+                            task: 'transcribe',
+                            chunk_length_s: 30,
+                            stride_length_s: 5,
+                            return_timestamps: false
+                        });
 
-                    const batchResults = await Promise.all(batchPromises);
-                    transcriptions.push(...batchResults);
+                        transcriptions.push({
+                            fileName: file.name,
+                            text: result.text || 'No se detectó audio hablado.',
+                            success: true
+                        });
+                    } catch (error) {
+                        console.error(`Error transcribing ${file.name}:`, error);
+                        transcriptions.push({
+                            fileName: file.name,
+                            text: `Error al transcribir: ${error.message}`,
+                            success: false
+                        });
+                    }
                     
-                    const progress = 30 + ((i + batch.length) / uploadedFiles.length) * 60;
-                    progressFill.style.width = `${progress}%`;
+                    progressFill.style.width = `${baseProgress + (60 / uploadedFiles.length)}%`;
                 }
 
                 progressFill.style.width = '100%';
@@ -1449,8 +1443,8 @@
             const helpContent = `
                 <h3 style="margin-bottom: 1rem;">📋 Instrucciones de Uso</h3>
                 <ol style="padding-left: 1.25rem; line-height: 1.8;">
-                    <li><strong>Subir Audios:</strong> Arrastra o haz clic para seleccionar múltiples archivos (hasta 15)</li>
-                    <li><strong>Transcribir:</strong> Procesa todos en paralelo (la primera vez descarga el modelo)</li>
+                    <li><strong>Subir Audios:</strong> Arrastra o haz clic para seleccionar múltiples archivos</li>
+                    <li><strong>Transcribir:</strong> Los audios se procesan uno por uno (la primera vez descarga el modelo)</li>
                     <li><strong>Pestañas:</strong> Navega entre diferentes transcripciones con las pestañas</li>
                     <li><strong>Editar:</strong> El texto es editable directamente en cada pestaña</li>
                     <li><strong>Exportar:</strong> Descarga como Word o imprime la transcripción activa</li>
@@ -1459,7 +1453,7 @@
                     <strong>💡 Nota:</strong> Usa Whisper AI que funciona 100% en tu navegador. No se envía nada a servidores externos.
                 </p>
                 <p style="margin-top: 0.5rem; padding: 0.75rem; background: #dcfce7; border-radius: 8px; font-size: 0.875rem;">
-                    <strong>⚡ Nuevo:</strong> Procesa hasta 15 audios simultáneamente para mayor velocidad.
+                    <strong>⚡ Procesamiento:</strong> Los audios se transcriben secuencialmente para mantener el navegador fluido.
                 </p>
             `;
 
