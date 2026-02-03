@@ -787,11 +787,16 @@
             createTabs();
         }
 
-        // Word count
+        // Word count - también habilita/deshabilita botones según contenido
         function updateWordCount() {
             const text = editor.innerText.trim();
             const words = text ? text.split(/\s+/).length : 0;
             wordCount.textContent = `${words} palabras`;
+            
+            // Habilitar botones si hay texto
+            const hasText = text.length > 0;
+            copyBtn.disabled = !hasText;
+            downloadBtn.disabled = !hasText;
         }
         editor.addEventListener('input', updateWordCount);
 
