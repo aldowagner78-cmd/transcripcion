@@ -473,6 +473,69 @@
             gap: 1rem;
         }
 
+        /* Tabs */
+        .tabs-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            padding: 0.5rem 1rem 0;
+            display: none;
+            gap: 0.5rem;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .tabs-container.active {
+            display: flex;
+        }
+
+        .tab {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+            background: var(--bg-main);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: 600;
+        }
+
+        .tab-close {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            margin-left: 0.25rem;
+            opacity: 0.5;
+        }
+
+        .tab-close:hover {
+            opacity: 1;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .tab-close svg {
+            width: 12px;
+            height: 12px;
+            fill: currentColor;
+        }
+
         .editor-title {
             font-family: 'Crimson Pro', Georgia, serif;
             font-size: 1.5rem;
@@ -500,6 +563,10 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-bottom: none;
+            border-radius: 0;
+        }
+
+        .editor-toolbar.no-tabs {
             border-radius: var(--radius-md) var(--radius-md) 0 0;
         }
 
@@ -763,7 +830,7 @@
                 <div class="file-list" id="fileList"></div>
 
                 <div class="model-notice" id="modelNotice">
-                    ⚡ Descargando modelo de alta velocidad (~80MB). Solo la primera vez, luego es instantáneo.
+                    ⚡ Descargando modelo de alta precisión (~150MB). Solo la primera vez. Luego podrás procesar múltiples audios simultáneamente.
                 </div>
 
                 <div class="processing-status" id="processingStatus">
@@ -814,7 +881,7 @@
         <!-- Editor Area -->
         <section class="editor-area">
             <div class="editor-header">
-                <h2 class="editor-title">Informe Médico Transcrito</h2>
+                <h2 class="editor-title">Informes Médicos Transcritos</h2>
                 <div class="editor-actions">
                     <button class="btn btn-secondary" id="copyBtn" disabled>
                         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -841,7 +908,8 @@
             </div>
 
             <div class="editor-container">
-                <div class="editor-toolbar">
+                <div class="tabs-container" id="tabsContainer"></div>
+                <div class="editor-toolbar" id="editorToolbar">
                     <button class="toolbar-btn" title="Negrita" onclick="formatText('bold')">
                         <svg viewBox="0 0 24 24">
                             <path
@@ -912,6 +980,8 @@
 
         let uploadedFiles = [];
         let transcriber = null;
+        let transcriptions = [];
+        let activeTranscriptionIndex = 0;
 
         // Drop Zone Events
         dropZone.addEventListener('click', () => fileInput.click());
@@ -1040,46 +1110,69 @@
             return audioData;
         }
 
-        // Transcribe Audio
+        // Transcribe Audio (with parallel processing)
         transcribeBtn.addEventListener('click', async () => {
             if (uploadedFiles.length === 0) return;
 
             processingStatus.classList.add('active');
             transcribeBtn.disabled = true;
             progressFill.style.width = '10%';
+            transcriptions = [];
 
             try {
                 // Load model if not loaded
                 await loadModel();
 
-                let fullTranscript = '';
+                processingText.textContent = `Procesando ${uploadedFiles.length} archivo(s) en paralelo...`;
+                progressFill.style.width = '30%';
 
-                for (let i = 0; i < uploadedFiles.length; i++) {
-                    const file = uploadedFiles[i];
-                    processingText.textContent = `Transcribiendo: ${file.name}`;
-                    progressFill.style.width = `${50 + (i / uploadedFiles.length) * 40}%`;
+                // Process all files in parallel (max 10 at a time to avoid memory issues)
+                const batchSize = 10;
+                for (let i = 0; i < uploadedFiles.length; i += batchSize) {
+                    const batch = uploadedFiles.slice(i, i + batchSize);
+                    
+                    const batchPromises = batch.map(async (file) => {
+                        try {
+                            // Convert audio to float32 array
+                            const audioData = await audioToFloat32(file);
 
-                    // Convert audio to float32 array
-                    const audioData = await audioToFloat32(file);
+                            // Transcribe with Whisper (optimized for Spanish medical terminology)
+                            const result = await transcriber(audioData, {
+                                language: 'es',
+                                task: 'transcribe',
+                                chunk_length_s: 30,
+                                stride_length_s: 5,
+                                return_timestamps: false
+                            });
 
-                    // Transcribe with Whisper (optimized for Spanish medical terminology)
-                    const result = await transcriber(audioData, {
-                        language: 'es',
-                        task: 'transcribe',
-                        chunk_length_s: 30,
-                        stride_length_s: 5,
-                        return_timestamps: false
+                            return {
+                                fileName: file.name,
+                                text: result.text || 'No se detectó audio hablado.',
+                                success: true
+                            };
+                        } catch (error) {
+                            console.error(`Error transcribing ${file.name}:`, error);
+                            return {
+                                fileName: file.name,
+                                text: `Error al transcribir: ${error.message}`,
+                                success: false
+                            };
+                        }
                     });
 
-                    fullTranscript += result.text + '\n\n';
+                    const batchResults = await Promise.all(batchPromises);
+                    transcriptions.push(...batchResults);
+                    
+                    const progress = 30 + ((i + batch.length) / uploadedFiles.length) * 60;
+                    progressFill.style.width = `${progress}%`;
                 }
 
                 progressFill.style.width = '100%';
-                processingText.textContent = 'Transcripción completada';
+                processingText.textContent = `${transcriptions.length} transcripción(es) completada(s)`;
 
-                // Set editor content
-                editor.innerHTML = fullTranscript.trim() || '<i style="color: var(--text-secondary);">No se detectó audio hablado.</i>';
-                updateWordCount();
+                // Create tabs and display first transcription
+                createTabs();
+                switchToTranscription(0);
 
                 // Enable buttons
                 copyBtn.disabled = false;
@@ -1088,7 +1181,7 @@
 
                 setTimeout(() => {
                     processingStatus.classList.remove('active');
-                    showToast('Transcripción completada con éxito', 'success');
+                    showToast(`${transcriptions.length} archivo(s) transcrito(s) exitosamente`, 'success');
                 }, 500);
 
             } catch (error) {
@@ -1105,9 +1198,90 @@
             const text = editor.innerText.trim();
             const words = text ? text.split(/\s+/).length : 0;
             wordCount.textContent = `${words} palabras`;
+            
+            // Save current transcription content
+            if (transcriptions.length > 0 && activeTranscriptionIndex < transcriptions.length) {
+                transcriptions[activeTranscriptionIndex].text = editor.innerHTML;
+            }
         }
 
         editor.addEventListener('input', updateWordCount);
+
+        // Create Tabs
+        function createTabs() {
+            const tabsContainer = document.getElementById('tabsContainer');
+            const editorToolbar = document.getElementById('editorToolbar');
+            
+            if (transcriptions.length <= 1) {
+                tabsContainer.classList.remove('active');
+                editorToolbar.classList.add('no-tabs');
+                return;
+            }
+
+            tabsContainer.classList.add('active');
+            editorToolbar.classList.remove('no-tabs');
+            
+            tabsContainer.innerHTML = transcriptions.map((t, index) => `
+                <button class="tab ${index === activeTranscriptionIndex ? 'active' : ''}" onclick="switchToTranscription(${index})">
+                    ${truncateFileName(t.fileName)}
+                    <span class="tab-close" onclick="event.stopPropagation(); closeTab(${index})">
+                        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                    </span>
+                </button>
+            `).join('');
+        }
+
+        // Switch to Transcription
+        function switchToTranscription(index) {
+            if (index < 0 || index >= transcriptions.length) return;
+            
+            // Save current content before switching
+            if (transcriptions.length > 0 && activeTranscriptionIndex < transcriptions.length) {
+                transcriptions[activeTranscriptionIndex].text = editor.innerHTML;
+            }
+            
+            activeTranscriptionIndex = index;
+            editor.innerHTML = transcriptions[index].text;
+            updateWordCount();
+            createTabs();
+        }
+
+        // Close Tab
+        function closeTab(index) {
+            if (transcriptions.length <= 1) {
+                // Last tab, reset everything
+                transcriptions = [];
+                editor.innerHTML = '';
+                document.getElementById('tabsContainer').classList.remove('active');
+                document.getElementById('editorToolbar').classList.add('no-tabs');
+                copyBtn.disabled = true;
+                downloadBtn.disabled = true;
+                printBtn.disabled = true;
+                updateWordCount();
+                return;
+            }
+
+            transcriptions.splice(index, 1);
+            
+            if (activeTranscriptionIndex >= index && activeTranscriptionIndex > 0) {
+                activeTranscriptionIndex--;
+            }
+            
+            if (activeTranscriptionIndex >= transcriptions.length) {
+                activeTranscriptionIndex = transcriptions.length - 1;
+            }
+            
+            switchToTranscription(activeTranscriptionIndex);
+        }
+
+        // Truncate file name for tabs
+        function truncateFileName(fileName) {
+            const maxLength = 20;
+            if (fileName.length <= maxLength) return fileName;
+            const ext = fileName.split('.').pop();
+            const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+            return nameWithoutExt.substring(0, maxLength - ext.length - 4) + '...' + ext;
+        }
 
         // Format Text
         function formatText(command) {
@@ -1233,6 +1407,12 @@
             updateFileList();
             fileInput.value = '';
 
+            // Clear transcriptions and tabs
+            transcriptions = [];
+            activeTranscriptionIndex = 0;
+            document.getElementById('tabsContainer').classList.remove('active');
+            document.getElementById('editorToolbar').classList.add('no-tabs');
+
             // Clear editor
             editor.innerHTML = '';
             wordCount.textContent = '0 palabras';
@@ -1263,13 +1443,17 @@
             const helpContent = `
                 <h3 style="margin-bottom: 1rem;">📋 Instrucciones de Uso</h3>
                 <ol style="padding-left: 1.25rem; line-height: 1.8;">
-                    <li><strong>Subir Audio:</strong> Arrastra o haz clic para seleccionar archivos</li>
-                    <li><strong>Transcribir:</strong> Haz clic en el botón (la primera vez descarga el modelo)</li>
-                    <li><strong>Editar:</strong> El texto es editable directamente</li>
-                    <li><strong>Exportar:</strong> Descarga como Word o imprime</li>
+                    <li><strong>Subir Audios:</strong> Arrastra o haz clic para seleccionar múltiples archivos (hasta 15)</li>
+                    <li><strong>Transcribir:</strong> Procesa todos en paralelo (la primera vez descarga el modelo)</li>
+                    <li><strong>Pestañas:</strong> Navega entre diferentes transcripciones con las pestañas</li>
+                    <li><strong>Editar:</strong> El texto es editable directamente en cada pestaña</li>
+                    <li><strong>Exportar:</strong> Descarga como Word o imprime la transcripción activa</li>
                 </ol>
                 <p style="margin-top: 1rem; padding: 0.75rem; background: #fef3c7; border-radius: 8px; font-size: 0.875rem;">
                     <strong>💡 Nota:</strong> Usa Whisper AI que funciona 100% en tu navegador. No se envía nada a servidores externos.
+                </p>
+                <p style="margin-top: 0.5rem; padding: 0.75rem; background: #dcfce7; border-radius: 8px; font-size: 0.875rem;">
+                    <strong>⚡ Nuevo:</strong> Procesa hasta 15 audios simultáneamente para mayor velocidad.
                 </p>
             `;
 
