@@ -817,29 +817,69 @@
                     return;
                 }
 
-                const { Document, Packer, Paragraph, TextRun, AlignmentType } = docx;
-                const lines = (editor.innerText || '').split('\n').filter(l => l.trim());
+                const text = editor.innerText || '';
+                if (!text.trim()) {
+                    showToast('No hay texto para descargar', 'error');
+                    return;
+                }
+
+                const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } = docx;
+                const lines = text.split('\n');
                 const fileName = transcriptions[activeTranscriptionIndex]?.fileName?.replace(/\.[^/.]+$/, '') || 'informe';
 
+                const paragraphs = [];
+                
+                // Header
+                paragraphs.push(new Paragraph({
+                    children: [new TextRun({ text: 'INFORME MÉDICO', bold: true, size: 36 })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 }
+                }));
+                
+                paragraphs.push(new Paragraph({
+                    children: [new TextRun({ text: `Fecha: ${new Date().toLocaleDateString('es-ES')}`, size: 24, italics: true, color: '666666' })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 400 }
+                }));
+
+                // Content
+                for (const line of lines) {
+                    paragraphs.push(new Paragraph({
+                        children: [new TextRun({ text: line, size: 24 })],
+                        spacing: { after: 120 }
+                    }));
+                }
+
                 const doc = new Document({
+                    creator: "Transcriptor Médico",
+                    title: "Informe Médico",
+                    description: "Transcripción de audio médico",
                     sections: [{
-                        children: [
-                            new Paragraph({ children: [new TextRun({ text: 'INFORME MÉDICO', bold: true, size: 32 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
-                            new Paragraph({ children: [new TextRun({ text: `Fecha: ${new Date().toLocaleDateString('es-ES')}`, size: 22, color: '666666' })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
-                            ...lines.map(l => new Paragraph({ children: [new TextRun({ text: l, size: 24 })], spacing: { after: 200 } }))
-                        ]
+                        properties: {},
+                        children: paragraphs
                     }]
                 });
 
                 const blob = await Packer.toBlob(doc);
+                const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
+                a.href = url;
                 a.download = `${fileName}_${new Date().toISOString().split('T')[0]}.docx`;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
                 showToast('Documento descargado', 'success');
             } catch (e) {
-                console.error(e);
-                showToast('Error al crear documento', 'error');
+                console.error('Error Word:', e);
+                // Fallback: download as TXT
+                const text = editor.innerText || '';
+                const blob = new Blob([text], { type: 'text/plain' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `informe_${new Date().toISOString().split('T')[0]}.txt`;
+                a.click();
+                showToast('Descargado como TXT (error en Word)', 'error');
             }
         });
 
